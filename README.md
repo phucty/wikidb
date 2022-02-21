@@ -45,50 +45,91 @@ python build_db.py
 Refer to [example.py](example.py)
 
 ``` python
+# Import class
 from core.db_wd import DBWikidata
 
+# Wikidb
 db = DBWikidata()
 
-# Get label in english
+
+# Get label of Belgium (Q31)
 print(db.get_label("Q31"))
 
-# Gel label in all languages
+# Gel label in all languages of Belgium (Q31)
 print(db.get_labels("Q31"))
+# Get label in a specific language
+print(db.get_labels("Q31", "ja"))
 
-# Gel aliases in all languages
+# Gel aliases in all languages of Belgium (Q31)
 print(db.get_aliases("Q31"))
+# Get aliases in a specific language of Belgium (Q31)
+print(db.get_aliases("Q31", "ja"))
 
-# Gel descriptions in all languages
+# Gel descriptions in all languages of Belgium (Q31)
 print(db.get_descriptions("Q31"))
+# Get descriptions in a specific language of Belgium (Q31)
+print(db.get_descriptions("Q31", "ja"))
 
-# Gel descriptions in all languages
-print(db.get_descriptions("Q31"))
-
-# Gel sitelinks
+# Gel sitelinks of Belgium (Q31)
 print(db.get_sitelinks("Q31"))
 
-# Gel claims
+# Gel Wikipedia title of Belgium (Q31)
+print(db.get_wikipedia_title("ja", "Q31"))
+# Gel Wikipedia link of Belgium (Q31)
+print(db.get_wikipedia_link("ja", "Q31"))
+
+# Gel claims of Belgium (Q31)
 print(db.get_claims("Q31"))
 
-# Get all information about Q31
+# Get all information of Belgium (Q31)
 print(db.get_item("Q31"))
 
-# Get redirect of Q31
+# Get redirect of Belgium (Q31)
 redirects = db.get_redirect_of("Q31")
 print(redirects)
 
-# Get redirect
+# Get redirect of
 print(db.get_redirect(redirects[0]))
 
-# Get instance of Q31
-print(db.get_instance_of("Q31"))
+# Get instance of Belgium (Q31)
+instance_ofs = db.get_instance_of("Q31")
+for i, wd_id in enumerate(instance_ofs):
+    print(f"{i}: {wd_id} - {db.get_label(wd_id)}")
 
-# Get subclass of Q31
+# Get subclass of Belgium (Q31)
 print(db.get_subclass_of("Q31"))
 
-# Get all types of Q31
-print(db.get_all_types("Q31"))
+# Get all types of Belgium (Q31)
+types = db.get_all_types("Q31")
+for i, wd_id in enumerate(types):
+    print(f"{i}: {wd_id} - {db.get_label(wd_id)}")
 
+
+# Print provenance list
+def print_provenance_list(iter_obj):
+    for i, provenance in enumerate(iter_obj):
+        if i > 3:
+            break
+        subject = provenance["subject"]
+        predicate = provenance["predicate"]
+        value = provenance["value"]
+        reference_node = provenance["reference"]
+        print(
+            f"{i+1}: <{subject}[{db.get_label(subject)}] - {predicate}[{db.get_label(predicate)}] - {value}>]]"
+        )
+        print(f"  Reference Node:")
+        for ref_type, ref_objs in reference_node.items():
+            for ref_prop, ref_v in ref_objs.items():
+                print(f"    {ref_prop}[{db.get_label(ref_prop)}]: {ref_v}")
+    print()
+
+
+# Get provenance of Belgium (Q31)
+print_provenance_list(db.get_provenance_analysis("Q31"))
+# Get provenance of Belgium (Q31), and Tokyo (Q1490)
+print_provenance_list(db.get_provenance_analysis(["Q31", "Q1490"]))
+# Get provenance of all items
+print_provenance_list(db.get_provenance_analysis())
 ``` 
 
 ### 6. Todo

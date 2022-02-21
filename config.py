@@ -50,6 +50,12 @@ class DBUpdateType:
     COUNTER = 1
 
 
+class ATTR_OPTS:
+    AND = "AND"
+    OR = "OR"
+    NOT = "NOT"
+
+
 WD = "http://www.wikidata.org/entity/"
 WDT = "http://www.wikidata.org/prop/direct/"
 

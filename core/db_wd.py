@@ -8,7 +8,6 @@ import sys
 from collections import defaultdict
 from contextlib import closing
 from multiprocessing.pool import Pool
-
 import ujson
 from tqdm import tqdm
 import marisa_trie
@@ -16,6 +15,7 @@ import core.io_worker as iw
 import config as cf
 from core.db_core import DBCore, serialize, serialize_value, serialize_key
 import csv
+from pyroaring import BitMap
 
 
 def parse_sql_values(line):
@@ -93,7 +93,7 @@ class DumpReaderWikidata(object):
 
 
 class DBWikidata(DBCore):
-    def __init__(self, db_file=cf.DIR_WIKIDATA_ITEMS_JSON + "1"):
+    def __init__(self, db_file=cf.DIR_WIKIDATA_ITEMS_JSON):
         super().__init__(db_file=db_file, max_db=11, map_size=cf.SIZE_1GB * 100)
         self.db_file = db_file
         self.db_redirect = self._env.open_db(b"db_redirect", integerkey=True)
@@ -148,6 +148,7 @@ class DBWikidata(DBCore):
         integerkey=True,
         decode=True,
         bytes_value=cf.ToBytesType.OBJ,
+        lang=None,
     ):
         if integerkey and not isinstance(wd_id, int):
             wd_id = self.get_lid(wd_id)
@@ -160,9 +161,13 @@ class DBWikidata(DBCore):
             compress_value=compress_value,
             bytes_value=bytes_value,
         )
-        if not decode or not results:
+        if not results:
             return results
+        if lang and results and isinstance(results, dict):
+            results = results.get(lang)
 
+        if not decode:
+            return results
         if decode and isinstance(results, int):
             return self.db_qid_trie.restore_key(results)
         if decode and type(results) in [list]:
@@ -222,23 +227,34 @@ class DBWikidata(DBCore):
             self.db_label, wd_id, compress_value=False, integerkey=True, decode=False
         )
 
-    def get_labels(self, wd_id):
+    def get_labels(self, wd_id, lang=None):
         return self._get_db_item(
-            self.db_labels, wd_id, compress_value=True, integerkey=True, decode=False
+            self.db_labels,
+            wd_id,
+            compress_value=True,
+            integerkey=True,
+            decode=False,
+            lang=lang,
         )
 
-    def get_descriptions(self, wd_id):
+    def get_descriptions(self, wd_id, lang=None):
         return self._get_db_item(
             self.db_descriptions,
             wd_id,
             compress_value=True,
             integerkey=True,
             decode=False,
+            lang=lang,
         )
 
-    def get_aliases(self, wd_id):
+    def get_aliases(self, wd_id, lang=None):
         return self._get_db_item(
-            self.db_aliases, wd_id, compress_value=True, integerkey=True, decode=False,
+            self.db_aliases,
+            wd_id,
+            compress_value=True,
+            integerkey=True,
+            decode=False,
+            lang=lang,
         )
 
     def get_sitelinks(self, wd_id):
@@ -307,6 +323,19 @@ class DBWikidata(DBCore):
                             process_queue.put(item)
         return list(results)
 
+    def get_wikipedia_title(self, lang, wd_id):
+        tmp = self.get_sitelinks(wd_id)
+        if tmp and tmp.get(f"{lang}wiki"):
+            return tmp[f"{lang}wiki"]
+        return None
+
+    def get_wikipedia_link(self, lang, wd_id):
+        title = self.get_wikipedia_title(lang, wd_id)
+        if title and isinstance(title, str):
+            title = title.replace(" ", "_")
+            return f"https://{lang}.wikipedia.org/wiki/{title}"
+        return None
+
     def get_lid(self, wd_id, default=None):
         results = self.db_qid_trie.get(wd_id)
         if results is None:
@@ -319,6 +348,92 @@ class DBWikidata(DBCore):
             if results is not None:
                 return results
         return lid
+
+    def get_provenance_analysis(self, wd_id=None):
+        def iter():
+            if wd_id is None:
+                keys = self.keys()
+            else:
+                if isinstance(wd_id, list):
+                    keys = wd_id
+                else:  # isinstance(wd_id, str):
+                    keys = [wd_id]
+
+            for key in keys:
+                wd_claims = self.get_claims(key)
+                if wd_claims:
+                    yield key, wd_claims
+
+        for wd_id, claims in iter():
+            for claim_type, claim_objs in claims.items():
+                for claim_prop, claim_values in claim_objs.items():
+                    for claim_value in claim_values:
+                        refs = claim_value.get("references")
+                        value = claim_value.get("value")
+                        if not refs:
+                            continue
+                        for ref in refs:
+                            yield (
+                                {
+                                    "reference": ref,
+                                    "subject": wd_id,
+                                    "predicate": claim_prop,
+                                    "value": value,
+                                }
+                            )
+
+    def get_haswbstatement(self, statements):
+        results = None
+        # sort attr
+        if len(statements) > 1:
+            sorted_attr = []
+            for operation, pid, qid in statements:
+                f = -1
+                tmp = None
+                # if pid and qid:
+                #     tmp = m_f.m_items2().get_qid(
+                #         qid, pid, get_posting=False, get_qid=False
+                #     )
+
+                # elif qid:
+                #     tmp = m_f.m_items2().get_qid(qid, get_posting=False, get_qid=False)
+                # if tmp is None:
+                #     continue
+                # f = tmp.get("f", f)
+                if f == -1:
+                    return []
+                sorted_attr.append([operation, pid, qid, f])
+            sorted_attr.sort(key=lambda x: x[3])
+            statements = [
+                [operation, pid, qid] for operation, pid, qid, f in sorted_attr
+            ]
+
+        for operation, pid, qid in statements:
+            # if pid and qid:
+            #     tmp = m_f.m_items2().get_qid(qid, pid, get_qid=False)
+            # elif qid:
+            #     tmp = m_f.m_items2().get_qid(qid, get_qid=False)
+            # else:
+            #     tmp = BitMap()
+
+            if results is None:
+                results = tmp
+                if tmp is None:
+                    break
+            else:
+                if operation == cf.ATTR_OPTS.AND:
+                    results = results & tmp
+                elif operation == cf.ATTR_OPTS.OR:
+                    results = results | tmp
+                elif operation == cf.ATTR_OPTS.NOT:
+                    results = BitMap.difference(results, tmp)
+                else:  # default = AND
+                    results = results & tmp
+
+            iw.print_status(
+                f"  {operation}. {pid}={qid} ({self.get_label(pid)}={self.get_label(qid)}) : {len(tmp):,} --> Context: {len(results):,}"
+            )
+        return results
 
     def build(self):
         # 1. Build trie and redirect\

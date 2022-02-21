@@ -20,7 +20,7 @@ conda activate wikidb
 pip install -r requirements.txt
 ``` 
 
-### 2. Download Wikidata dumps
+### 3. Download Wikidata dumps
 ``` 
 python download_dump.py
 ```
@@ -31,7 +31,7 @@ We will download the three files:
 - `wikidatawiki-{SQL_VER}-page.sql.gz`: Get local ID of Wikidata, and build Wikidata ID trie
 - `wikidatawiki-{SQL_VER}-redirect.sql.gz`: Get redirect Wikidata items
 
-### 3. Build wikidb
+### 4. Build wikidb
 ``` 
 python build_db.py
 ```
@@ -41,7 +41,7 @@ python build_db.py
 
 `Run time: 1 or 2 days`
 
-### 4. Use wikidb
+### 5. Use wikidb
 Refer to [example.py](example.py)
 
 ``` python
@@ -91,7 +91,7 @@ print(db.get_all_types("Q31"))
 
 ``` 
 
-### 5. Todo
+### 6. Todo
 - Prepare downloadable indexed model link
 - Boolean search similar to haswbstatement of Cirrus Search of Wikidata
 - Provenance information extraction

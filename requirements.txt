@@ -1,0 +1,7 @@
+zlib
+lmdb
+msgpack
+numpy
+pyroaring
+tqdm
+requests

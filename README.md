@@ -95,3 +95,13 @@ print(db.get_all_types("Q31"))
 - Prepare downloadable indexed model link
 - Boolean search similar to haswbstatement of Cirrus Search of Wikidata
 - Provenance information extraction
+
+
+### LICENSE
+wikidb code is licensed under MIT License.
+
+The LMDB lib is under OpenLDAP Public License (permissive software license)
+
+Python binding: https://github.com/jnwatson/py-lmdb/blob/master/LICENSE
+
+Original LMDB: https://github.com/LMDB/lmdb/blob/mdb.master/libraries/liblmdb/LICENSE

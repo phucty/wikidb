@@ -93,8 +93,9 @@ class DumpReaderWikidata(object):
 
 
 class DBWikidata(DBCore):
-    def __init__(self, db_file=cf.DIR_WIKIDATA_ITEMS_JSON):
+    def __init__(self, db_file=cf.DIR_WIKIDATA_ITEMS_JSON + "1"):
         super().__init__(db_file=db_file, max_db=11, map_size=cf.SIZE_1GB * 100)
+        self.db_file = db_file
         self.db_redirect = self._env.open_db(b"db_redirect", integerkey=True)
         self.db_redirect_of = self._env.open_db(b"db_redirect_of", integerkey=True)
         self.db_label = self._env.open_db(b"db_label", integerkey=True)
@@ -447,13 +448,13 @@ class DBWikidata(DBCore):
             return encode_ref_nodes
 
         p_bar = tqdm(desc=update_desc(), total=90000000)
-        # if n_process == 1:
-        #     for i, iter_item in enumerate(iter_items):
-        #         wd_respond = parse_json_dump(iter_item)
-        with closing(Pool(n_process)) as pool:
-            for i, wd_respond in enumerate(
-                pool.imap_unordered(parse_json_dump, iter_items)
-            ):
+        if n_process == 1:
+            for i, iter_item in enumerate(iter_items):
+                wd_respond = parse_json_dump(iter_item)
+                # with closing(Pool(n_process)) as pool:
+                #     for i, wd_respond in enumerate(
+                #         pool.imap_unordered(parse_json_dump, iter_items)
+                #     ):
                 # if count > 10000:
                 #     break
                 if i and i % step == 0:

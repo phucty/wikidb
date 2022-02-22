@@ -10,8 +10,8 @@ def download_wikidata_dump(json_version=cf.DUMPS_WD_JSON, sql_version=cf.DUMPS_W
     urls = [
         f"https://dumps.wikimedia.org/wikidatawiki/{sql_version}/wikidatawiki-{sql_version}-page.sql.gz",
         f"https://dumps.wikimedia.org/wikidatawiki/{sql_version}/wikidatawiki-{sql_version}-redirect.sql.gz",
-        f"https://dumps.wikimedia.org/wikidatawiki/entities/{json_version}/wikidata-{json_version}-all.json.bz2",
-        # f"https://dumps.wikimedia.org/wikidatawiki/entities/{json_version}/wikidata-{json_version}-all.json.gz",
+        # f"https://dumps.wikimedia.org/wikidatawiki/entities/{json_version}/wikidata-{json_version}-all.json.bz2",
+        f"https://dumps.wikimedia.org/wikidatawiki/entities/{json_version}/wikidata-{json_version}-all.json.gz",
     ]
 
     for url in urls:

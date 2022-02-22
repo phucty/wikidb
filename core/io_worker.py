@@ -93,3 +93,25 @@ def load_obj_pkl(file_name, is_message=False):
     if is_message and load_obj:
         print_status("%d loaded items - %s" % (len(load_obj), file_name))
     return load_obj
+
+
+def get_size_of_file(num, suffix="B"):
+    """Get human friendly file size
+    https://gist.github.com/cbwar/d2dfbc19b140bd599daccbe0fe925597#gistcomment-2845059
+
+    Args:
+        num (int): Bytes value
+        suffix (str, optional): Unit. Defaults to 'B'.
+
+    Returns:
+        str: file size0
+    """
+    if num == 0:
+        return "0"
+    magnitude = int(math.floor(math.log(num, 1024)))
+    val = num / math.pow(1024, magnitude)
+    if magnitude > 7:
+        return "{:3.1f}{}{}".format(val, "Yi", suffix)
+    return "{:3.1f}{}{}".format(
+        val, ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"][magnitude], suffix
+    )

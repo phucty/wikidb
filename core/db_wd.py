@@ -1,21 +1,19 @@
 import bz2
+import csv
 import gc
 import gzip
 import os.path
 import queue
-import string
-import sys
 from collections import defaultdict
-from contextlib import closing
-from multiprocessing.pool import Pool
-import ujson
-from tqdm import tqdm
+
 import marisa_trie
-import core.io_worker as iw
-import config as cf
-from core.db_core import DBCore, serialize, serialize_value, serialize_key
-import csv
+import ujson
 from pyroaring import BitMap
+from tqdm import tqdm
+
+import config as cf
+import core.io_worker as iw
+from core.db_core import DBCore, serialize_value, serialize_key, serialize
 
 
 def parse_sql_values(line):
@@ -138,7 +136,7 @@ class DBWikidata(DBCore):
             yield k, v
 
     def size(self):
-        return self.get_db_size(self.db_label)
+        return len(self.db_qid_trie)
 
     def _get_db_item(
         self,
@@ -150,6 +148,8 @@ class DBWikidata(DBCore):
         bytes_value=cf.ToBytesType.OBJ,
         lang=None,
     ):
+        if wd_id is None:
+            return None
         if integerkey and not isinstance(wd_id, int):
             wd_id = self.get_lid(wd_id)
             if wd_id is None:
@@ -349,7 +349,7 @@ class DBWikidata(DBCore):
                 return results
         return lid
 
-    def get_provenance_analysis(self, wd_id=None):
+    def iter_provenances(self, wd_id=None):
         def iter():
             if wd_id is None:
                 keys = self.keys()
@@ -382,39 +382,32 @@ class DBWikidata(DBCore):
                                 }
                             )
 
-    def get_haswbstatement(self, statements):
+    def get_haswbstatements(self, statements):
         results = None
         # sort attr
-        if len(statements) > 1:
+        if statements:
             sorted_attr = []
             for operation, pid, qid in statements:
-                f = -1
-                tmp = None
-                # if pid and qid:
-                #     tmp = m_f.m_items2().get_qid(
-                #         qid, pid, get_posting=False, get_qid=False
-                #     )
-
-                # elif qid:
-                #     tmp = m_f.m_items2().get_qid(qid, get_posting=False, get_qid=False)
-                # if tmp is None:
-                #     continue
-                # f = tmp.get("f", f)
-                if f == -1:
-                    return []
-                sorted_attr.append([operation, pid, qid, f])
+                fre = None
+                if pid and qid:
+                    fre = self.get_head_qid(qid, pid, get_posting=False, get_qid=False)
+                elif qid:
+                    fre = self.get_head_qid(qid, get_posting=False, get_qid=False)
+                if fre is None:
+                    continue
+                sorted_attr.append([operation, pid, qid, fre])
             sorted_attr.sort(key=lambda x: x[3])
             statements = [
                 [operation, pid, qid] for operation, pid, qid, f in sorted_attr
             ]
 
         for operation, pid, qid in statements:
-            # if pid and qid:
-            #     tmp = m_f.m_items2().get_qid(qid, pid, get_qid=False)
-            # elif qid:
-            #     tmp = m_f.m_items2().get_qid(qid, get_qid=False)
-            # else:
-            #     tmp = BitMap()
+            if pid and qid:
+                tmp = self.get_head_qid(qid, pid, get_qid=False)
+            elif qid:
+                tmp = self.get_head_qid(qid, get_qid=False)
+            else:
+                tmp = BitMap()
 
             if results is None:
                 results = tmp
@@ -430,17 +423,100 @@ class DBWikidata(DBCore):
                 else:  # default = AND
                     results = results & tmp
 
-            iw.print_status(
-                f"  {operation}. {pid}={qid} ({self.get_label(pid)}={self.get_label(qid)}) : {len(tmp):,} --> Context: {len(results):,}"
-            )
+            # iw.print_status(
+            #     f"  {operation}. {pid}={qid} ({self.get_label(pid)}={self.get_label(qid)}) : {len(tmp):,} --> Context: {len(results):,}"
+            # )
+        if results is None:
+            return []
+        results = [self.get_qid(i) for i in results]
         return results
 
     def build(self):
-        # 1. Build trie and redirect\
+        # 1. Build trie and redirect
         self.build_trie_and_redirects()
 
         # 2. Build json dump
         self.build_from_json_dump(n_process=6)
+
+        # 3. Build haswdstatement (Optional)
+        self.build_haswbstatements()
+
+    def get_head_qid(self, tail_qid, pid=None, get_posting=True, get_qid=False):
+        if not isinstance(tail_qid, int):
+            tail_qid = self.get_lid(tail_qid)
+            if tail_qid is None:
+                return None
+
+        if pid and not isinstance(pid, int):
+            pid = self.get_lid(pid)
+            if pid is None:
+                return None
+
+        if not pid:
+            key = str(tail_qid)
+        else:
+            key = f"{tail_qid}|{pid}"
+
+        if not get_posting:
+            return self.get_memory_size(self.db_claim_ent_inv, key)
+
+        posting = self.get_value(
+            self.db_claim_ent_inv, key, bytes_value=cf.ToBytesType.INT_BITMAP
+        )
+        if get_qid:
+            posting = [self.get_qid(p) for p in posting]
+        return posting
+
+    def build_haswbstatements(self, buff_limit=cf.SIZE_512MB, step=10000):
+        invert_index = defaultdict(BitMap)
+
+        for i, head_id in enumerate(tqdm(self.keys(), total=self.size())):
+            if i and i % step == 0:
+                break
+
+            head_lid = self.get_lid(head_id)
+            if head_lid is None or not isinstance(head_lid, int):
+                continue
+            v = self.get_value(
+                self.db_claims, head_lid, integerkey=True, compress_value=True
+            )
+            if not v or not v.get("wikibase-entityid"):
+                continue
+            for claim_prop, claim_value_objs in v["wikibase-entityid"].items():
+                for claim_value_obj in claim_value_objs:
+                    claim_value = claim_value_obj["value"]
+                    if isinstance(claim_value, int):
+                        invert_index[f"{claim_value}|{claim_prop}"].add(head_lid)
+
+        invert_index = sorted(invert_index.items(), key=lambda x: x[0])
+        buff = []
+        buff_size = 0
+        tail_kv_list = []
+        tail_k = None
+        tail_v = BitMap()
+        for k, v in tqdm(invert_index, desc="Save db", total=len(invert_index)):
+            tmp_k = k.split("|")[0]
+            if tmp_k != tail_k:
+                if tail_k:
+                    tail_k, tail_v = serialize(
+                        tail_k, tail_v, bytes_value=cf.ToBytesType.INT_BITMAP
+                    )
+                    buff_size += len(tail_k) + len(tail_v)
+                    buff.append((tail_k, tail_v))
+                    buff.extend(tail_kv_list)
+                tail_k = tmp_k
+                tail_v = BitMap()
+                tail_kv_list = []
+            tail_v.update(v)
+            k, v = serialize(k, v, bytes_value=cf.ToBytesType.INT_BITMAP)
+            buff_size += len(k) + len(v)
+            tail_kv_list.append((k, v))
+            if buff_size > buff_limit:
+                self.write_bulk(self._env, self.db_claim_ent_inv, buff, sort_key=False)
+                buff = []
+                buff_size = 0
+        if buff_size:
+            self.write_bulk(self._env, self.db_claim_ent_inv, buff, sort_key=False)
 
     def build_trie_and_redirects(self, step=100000):
         if not os.path.exists(cf.DIR_DUMP_WIKIDATA_PAGE):
@@ -659,7 +735,7 @@ class DBWikidata(DBCore):
 
             if buff_size:
                 p_bar.set_description(desc=update_desc())
-                buff = save_buff(buff)
+                save_buff(buff)
                 buff_size = 0
 
 

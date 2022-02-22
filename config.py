@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 import psutil
 
@@ -10,7 +9,7 @@ DUMPS_WD_SQL = "20220201"
 
 DIR_DUMPS = f"{DIR_ROOT}/data/dump"
 
-DIR_DUMP_WD = f"{DIR_DUMPS}/wikidata-{DUMPS_WD_JSON}-all.json.bz2"
+DIR_DUMP_WD = f"{DIR_DUMPS}/wikidata-{DUMPS_WD_JSON}-all.json.gz"
 DIR_DUMP_WIKIDATA_PAGE = f"{DIR_DUMPS}/wikidatawiki-{DUMPS_WD_SQL}-page.sql.gz"
 DIR_DUMP_WIKIDATA_REDIRECT = f"{DIR_DUMPS}/wikidatawiki-{DUMPS_WD_SQL}-redirect.sql.gz"
 
@@ -34,8 +33,9 @@ LMDB_MAX_KEY = 511
 LMDB_MAP_SIZE = 10_737_418_240  # 10GB
 # Using Ram as buffer
 LMDB_BUFF_BYTES_SIZE = psutil.virtual_memory().total // 10
-if LMDB_BUFF_BYTES_SIZE > SIZE_1GB * 5:
-    LMDB_BUFF_BYTES_SIZE = SIZE_1GB * 5
+if LMDB_BUFF_BYTES_SIZE > SIZE_1GB:
+    LMDB_BUFF_BYTES_SIZE = SIZE_1GB
+# LMDB_BUFF_BYTES_SIZE = SIZE_1MB * 10
 
 
 # Enum

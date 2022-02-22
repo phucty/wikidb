@@ -270,6 +270,20 @@ class DBCore:
                     iw.print_status(message)
         return False
 
+    def get_memory_size(self, db, key_obj, integerkey=False, is_64bit=False):
+        with self._env.begin(db=db, buffers=True) as txn:
+            key_obj = serialize_key(key_obj, integerkey=integerkey, is_64bit=is_64bit)
+            responds = None
+            if key_obj:
+                try:
+                    value_obj = txn.get(key_obj)
+                    if value_obj:
+                        return len(value_obj)
+                except Exception as message:
+                    iw.print_status(message)
+
+            return responds
+
     def get_value(
         self,
         db,

@@ -46,10 +46,11 @@ Refer to [example.py](example.py) or [example.ipynb](example.ipynb)
 ``` python
 # Import class
 from core.db_wd import DBWikidata
-import config as cf
 
 # Wikidb
-db = DBWikidata(cf.DIR_WIKIDATA_ITEMS_JSON + "2")
+db = DBWikidata()
+
+### 1. Get Entity Information
 
 # Get label of Belgium (Q31)
 print(db.get_label("Q31"))
@@ -103,6 +104,8 @@ types = db.get_all_types("Q31")
 for i, wd_id in enumerate(types):
     print(f"{i}: {wd_id} - {db.get_label(wd_id)}")
 
+### 2. Get Provenance nodes
+
 # Print provenance list
 def print_provenance_list(iter_obj):
     for i, provenance in enumerate(iter_obj):
@@ -129,7 +132,11 @@ print_provenance_list(db.iter_provenances(["Q31", "Q1490"]))
 # Get provenance of all items
 print_provenance_list(db.iter_provenances())
 
+### 3. Boolean search entities
+# Find subset of entities (head entities) with information about tail entities and properties (triples: <head entities, property, tail entities>)
+
 import time
+import config as cf
 
 
 def find_wikidata_items_haswbstatements(params, print_top=3):
@@ -153,6 +160,15 @@ def find_wikidata_items_haswbstatements(params, print_top=3):
     print()
 
 
+print("1.1. Get all female (Q6581072)")
+find_wikidata_items_haswbstatements([[cf.ATTR_OPTS.AND, None, "Q6581072"]])
+
+print("1.2. Get all male (Q6581072)")
+find_wikidata_items_haswbstatements([[cf.ATTR_OPTS.AND, None, "Q6581097"]])
+
+print(
+    "2. Get all entities has relation with Graduate University for Advanced Studies (Q2983844)"
+)
 find_wikidata_items_haswbstatements(
     [
         # ??? - Graduate University for Advanced Studies
@@ -160,6 +176,9 @@ find_wikidata_items_haswbstatements(
     ]
 )
 
+print(
+    "3. Get all entities who are human, male, educated at Todai, and work at SOKENDAI"
+)
 find_wikidata_items_haswbstatements(
     [
         # instance of - human
@@ -173,6 +192,7 @@ find_wikidata_items_haswbstatements(
     ]
 )
 
+print("4. Get all entities that have relation with human, male, Todai, and SOKENDAI")
 find_wikidata_items_haswbstatements(
     [
         # instance of - human
@@ -186,6 +206,9 @@ find_wikidata_items_haswbstatements(
     ]
 )
 
+print(
+    "5. Get all entities that have relation with scholarly article or DNA, X-ray diffraction, and Francis Crick and Nature"
+)
 find_wikidata_items_haswbstatements(
     [
         # ? - scholarly article

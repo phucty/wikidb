@@ -6,7 +6,7 @@ Build a local WikiDB from Wikidata dumps. We can fast access Wikidata item infor
 Features:
 - Get Wikidata entity information without any limitation as the online Wikidata request
 - Access provenance facts 1.4B facts with 1B references
-- Fast entities boolean search. For example: It takes 5 seconds to get all male[Q6581072] (5,868,897) or 2.2 seconds to get all researchers (occupation[P106]-researcher[Q1650915]) (1,765,233). 
+- Fast entities boolean search. For example: It takes 5 seconds (0.02 seconds if using wikidb local ID) to get all male[Q6581072] (5,868,897) or 2.2 seconds (0.01 seconds if using wikidb local ID)to get all researchers (occupation[P106]-researcher[Q1650915]) (1,765,233). 
 
 See more details in [example.ipynb](example.ipynb)
 

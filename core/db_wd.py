@@ -112,18 +112,23 @@ class DBWikidata(DBCore):
             self.db_qid_trie = None
             self.build()
 
-    def get_redirect_of(self, wd_id):
+    def get_redirect_of(self, wd_id, decode=True):
         return self._get_db_item(
             self.db_redirect_of,
             wd_id,
             bytes_value=cf.ToBytesType.INT_NUMPY,
             integerkey=True,
-            decode=True,
+            decode=decode,
         )
 
-    def get_redirect(self, wd_id):
+    def get_redirect(self, wd_id, decode=True):
         return self._get_db_item(
-            self.db_redirect, wd_id, compress_value=False, integerkey=True, decode=True
+            self.db_redirect,
+            wd_id,
+            compress_value=False,
+            integerkey=True,
+            decode=decode,
+            get_redirect=False,
         )
 
     def keys(self):
@@ -147,6 +152,7 @@ class DBWikidata(DBCore):
         decode=True,
         bytes_value=cf.ToBytesType.OBJ,
         lang=None,
+        get_redirect=True,
     ):
         if wd_id is None:
             return None
@@ -161,6 +167,20 @@ class DBWikidata(DBCore):
             compress_value=compress_value,
             bytes_value=bytes_value,
         )
+        if not results and get_redirect:
+            # Try redirect item
+            try:
+                wd_id_redirect = self.get_redirect(wd_id, decode=False)
+                if wd_id_redirect and wd_id_redirect != wd_id:
+                    results = self.get_value(
+                        db,
+                        wd_id_redirect,
+                        integerkey=integerkey,
+                        compress_value=compress_value,
+                        bytes_value=bytes_value,
+                    )
+            except Exception as message:
+                iw.print_status(message, is_screen=False)
         if not results:
             return results
         if lang and results and isinstance(results, dict):
@@ -266,22 +286,27 @@ class DBWikidata(DBCore):
             decode=False,
         )
 
-    def get_claims(self, wd_id):
+    def get_claims(self, wd_id, get_qid=True):
         return self._get_db_item(
-            self.db_claims, wd_id, compress_value=True, integerkey=True, decode=True
+            self.db_claims, wd_id, compress_value=True, integerkey=True, decode=get_qid
         )
 
     def get_item(self, wd_id):
+        result = dict()
+        result["wikidata_id"] = wd_id
         if not isinstance(wd_id, int):
             wd_id = self.get_lid(wd_id)
             if wd_id is None:
                 return None
-        result = dict()
 
         def update_dict(attr, func):
             tmp = func(wd_id)
             if tmp is not None:
                 result[attr] = tmp
+
+        wd_redirect = self.get_redirect(wd_id)
+        if wd_redirect and wd_redirect != wd_id:
+            result["wikidata_id"] = wd_redirect
 
         update_dict("label", self.get_label)
         update_dict("labels", self.get_labels)
@@ -349,22 +374,26 @@ class DBWikidata(DBCore):
                 return results
         return lid
 
-    def iter_provenances(self, wd_id=None):
-        def iter():
-            if wd_id is None:
-                keys = self.keys()
-            else:
-                if isinstance(wd_id, list):
-                    keys = wd_id
-                else:  # isinstance(wd_id, str):
-                    keys = [wd_id]
+    def iter_item_provenances(self, wd_id=None):
+        if wd_id is None:
+            keys = self.keys()
+        else:
+            if isinstance(wd_id, list):
+                keys = wd_id
+            else:  # isinstance(wd_id, str):
+                keys = [wd_id]
 
-            for key in keys:
+        for key in keys:
+            wd_claims = None
+            try:
                 wd_claims = self.get_claims(key)
-                if wd_claims:
-                    yield key, wd_claims
+            except Exception as message:
+                iw.print_status(message, is_screen=False)
+            if wd_claims:
+                yield key, wd_claims
 
-        for wd_id, claims in iter():
+    def iter_provenances(self, wd_id=None):
+        for wd_id, claims in self.iter_item_provenances(wd_id):
             for claim_type, claim_objs in claims.items():
                 for claim_prop, claim_values in claim_objs.items():
                     for claim_value in claim_values:
@@ -382,7 +411,7 @@ class DBWikidata(DBCore):
                                 }
                             )
 
-    def get_haswbstatements(self, statements):
+    def get_haswbstatements(self, statements, get_qid=True):
         results = None
         # sort attr
         if statements:
@@ -428,7 +457,10 @@ class DBWikidata(DBCore):
             # )
         if results is None:
             return []
-        results = [self.get_qid(i) for i in results]
+        if get_qid:
+            results = [self.get_qid(i) for i in results]
+        else:
+            results = results.to_array()
         return results
 
     def build(self):

@@ -25,9 +25,10 @@ DIR_LOG = f"{DIR_ROOT}/log/{datetime.now().strftime(FORMAT_DATE)}.txt"
 # Configuration
 ENCODING = "utf-8"
 
-SIZE_1MB = 1_048_576
-SIZE_512MB = 536_870_912
-SIZE_1GB = 1_073_741_824
+# the actual size in RAM almost x2 than bytes size (so, // 2 to approximate the real number)
+SIZE_1MB = 1_048_576 // 2
+SIZE_512MB = 536_870_912 // 2
+SIZE_1GB = 1_073_741_824 // 2
 
 LMDB_MAX_KEY = 511
 LMDB_MAP_SIZE = 10_737_418_240  # 10GB

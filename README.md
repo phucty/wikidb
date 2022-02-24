@@ -3,6 +3,13 @@ WikiDB: Build a DB (key-value store - LMDB style) from Wikidata dump
 
 Build a local WikiDB from Wikidata dumps. We can fast access Wikidata item information, fact provenances, search and filter wikidata (known their attribute value (Wikidata ID)).
 
+Features:
+- Get Wikidata entity information without any limitation as the online Wikidata request
+- Access provenance facts 1.4B facts with 1B references
+- Fast entities boolean search. For example: It takes 5 seconds to get all male[Q6581072] (5,868,897) or 2.2 seconds to get all researchers (occupation[P106]-researcher[Q1650915]) (1,765,233). 
+
+See more details in [example.ipynb](example.ipynb)
+
 ## Use wikidb
 
 1. Modify [config.py](config.py) to your setting
@@ -33,7 +40,7 @@ After decompressing:
 wikidb
 |--data
 |  |--models
-|  |  |--wikidb.ldmb 
+|  |  |--wikidb.lmdb 
 |  |  |--wikidb.trie
 ``` 
 4. Refer to [example.py](example.py) or [example.ipynb](example.ipynb)

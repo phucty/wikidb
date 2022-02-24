@@ -22,10 +22,19 @@ pip install -r requirements.txt
 - Download file: `models.tar.bz2` - 39.68GB
 - Decompressed folder: `/data/models` - 182.21GB
 
+Download `models.tar.bz2` and decompress the file to `/data/`
 ``` 
+mkdir data
 cd data
-wget -c https://drive.google.com/file/d/1kSSC81ZEYnaiKpDXecfaVzXgtqiNnqYw/view?usp=sharing
 tar -xvjf models.tar.bz2 
+``` 
+After decompressing:
+``` 
+wikidb
+|--data
+|  |--models
+|  |  |--wikidb.ldmb 
+|  |  |--wikidb.trie
 ``` 
 4. Refer to [example.py](example.py) or [example.ipynb](example.ipynb)
 

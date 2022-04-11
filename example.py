@@ -58,6 +58,11 @@ types = db.get_all_types("Q31")
 for i, wd_id in enumerate(types):
     print(f"{i}: {wd_id} - {db.get_label(wd_id)}")
 
+# Get properties between two Wikidata items
+properties = db.get_properties_from_head_qid_tail_qid("Q1490", "Q17")
+for i, wd_id in enumerate(properties):
+    print(f"{i+1}: {wd_id} - {db.get_label(wd_id)}")
+
 ### 2. Get Provenance nodes
 
 # Print provenance list

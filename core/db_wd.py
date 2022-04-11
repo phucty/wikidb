@@ -473,6 +473,28 @@ class DBWikidata(DBCore):
         # 3. Build haswdstatement (Optional)
         self.build_haswbstatements()
 
+    def get_properties_from_head_qid_tail_qid(self, head_qid, tail_qid, get_qid=True):
+        if not isinstance(head_qid, int):
+            head_qid = self.get_lid(head_qid)
+            if head_qid is None:
+                return None
+        if not isinstance(tail_qid, int):
+            tail_qid = self.get_lid(tail_qid)
+            if tail_qid is None:
+                return None
+
+        results = set()
+        tail_qid_key = f"{tail_qid}|"
+        for key, values in self.get_iter_with_prefix(
+            self.db_claim_ent_inv, tail_qid_key, bytes_value=cf.ToBytesType.INT_BITMAP
+        ):
+            if head_qid in values:
+                pid = int(key.split("|")[-1])
+                results.add(pid)
+        if get_qid:
+            results = {self.get_qid(p) for p in results}
+        return results
+
     def get_head_qid(self, tail_qid, pid=None, get_posting=True, get_qid=False):
         if not isinstance(tail_qid, int):
             tail_qid = self.get_lid(tail_qid)

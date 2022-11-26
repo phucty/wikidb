@@ -8,9 +8,10 @@ from contextlib import closing
 import lmdb
 import msgpack
 import numpy as np
+from lz4 import frame
 from pyroaring import BitMap
 from tqdm import tqdm
-from lz4 import frame
+
 import config as cf
 from core import io_worker as iw
 

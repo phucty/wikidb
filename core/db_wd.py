@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 import config as cf
 import core.io_worker as iw
-from core.db_core import DBCore, serialize_value, serialize_key, serialize
+from core.db_core import DBCore, serialize, serialize_key, serialize_value
 
 
 def parse_sql_values(line):
@@ -50,12 +50,21 @@ def parse_sql_values(line):
 
 
 def convert_num(text):
+    if isinstance(text, int) or isinstance(text, float):
+        return text
+
     if not text:
         return None
+
+    text = text.replace(",", "")
+
     try:
-        return float(text)
+        return int(text)
     except ValueError:
-        return None
+        try:
+            return float(text)
+        except ValueError:
+            return None
 
 
 def get_wd_int(wd_id):
@@ -391,6 +400,69 @@ class DBWikidata(DBCore):
                 iw.print_status(message, is_screen=False)
             if wd_claims:
                 yield key, wd_claims
+
+    def get_provenances_from_statement(self, subject, predicate, value):
+        if not isinstance(subject, int):
+            subject = self.get_lid(subject)
+            if subject is None:
+                return []
+        
+        # if not isinstance(predicate, int):
+        #     predicate = self.get_lid(predicate)
+        #     if predicate is None:
+        #         return []
+        
+        # if isinstance(value, str) and value[0] == "Q":
+        #     value = self.get_lid(value)
+        #     if value is None:
+        #         return []
+        results = []
+        for subject, claims in self.iter_item_provenances(subject):
+            for claim_type, claim_objs in claims.items():
+                if predicate not in claim_objs:
+                    continue
+                claim_values = claim_objs[predicate]
+                
+                for claim_value in claim_values:
+                    refs = claim_value.get("references")    
+                    if not refs:
+                        continue
+                    if claim_type == "quantity":
+                        # Todo: go to work with unit convert
+                        claim_value = convert_num(claim_value.get("value")[0])
+                        value = convert_num(value)
+                    
+                        if abs(claim_value - value) / abs(value) < 0.02:
+                            results.extend(refs)
+                    else:
+                        claim_value = claim_value.get("value")
+                        if claim_value == value:
+                            results.extend(refs)
+        return results
+
+    def print_get_provenances_from_statement(self, subject, predicate, value, language="en"):
+        def get_label(wiki_id):
+            if language == "en":
+                return self.get_label(wiki_id)
+            return self.get_labels(wiki_id, lang=language)
+
+        if isinstance(value, str) and value[0].lower() in {"q", "p"}:
+            print(f"{subject}[{get_label(subject)}] - {predicate}[{get_label(predicate)}] - {value}[{get_label(value)}]")
+        else:
+            print(f"{subject}[{get_label(subject)}] - {predicate}[{get_label(predicate)}] - {value}")
+
+        statements = self.get_provenances_from_statement(subject, predicate, value)
+        for statement in statements:
+            print(" + Reference: ")
+            for statement_types, statement_objs in statement.items():
+                # Get labels
+                for ref_prop, ref_values in statement_objs.items():
+                    for ref_value in ref_values:
+                        if statement_types == "wikibase-entityid":
+                            print(f"   - {ref_prop}[{get_label(ref_prop)}] - {ref_value}[{get_label(ref_value)}]")
+                        else:
+                            print(f"   - {ref_prop}[{get_label(ref_prop)}] - {ref_value}")
+                    
 
     def iter_provenances(self, wd_id=None):
         for wd_id, claims in self.iter_item_provenances(wd_id):
